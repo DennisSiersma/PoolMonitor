@@ -53,6 +53,24 @@
 #include <ESP8266WebServer.h>
 
 /***********************************************************************************************
+ * Watchdog                                                                                    *     
+ ***********************************************************************************************/
+Ticker tickerOSWatch;
+
+#define OSWATCH_RESET_TIME 30
+
+static unsigned long last_loop;
+
+void ICACHE_RAM_ATTR osWatch(void) {
+    unsigned long t = millis();
+    unsigned long last_run = abs(t - last_loop);
+    if(last_run >= (OSWATCH_RESET_TIME * 1000)) {
+      // save the hit here to eeprom or to rtc memory if needed
+        ESP.restart();  // normal reboot 
+        //ESP.reset();  // hard reset
+    }
+}
+/***********************************************************************************************
  * Blynk                                                                                       *     
  ***********************************************************************************************/
 #include <BlynkSimpleEsp8266.h>
@@ -76,25 +94,25 @@ DallasTemperature sensors(&oneWire);
 /***********************************************************************************************
  * EZO stuff                                                                                   *     
  ***********************************************************************************************/
-#define TOTAL_CIRCUITS 2                       // <-- CHANGE THIS | set how many I2C circuits are attached to the Tentacle
+#define TOTAL_CIRCUITS 2                            // <-- CHANGE THIS | set how many I2C circuits are attached to the Tentacle
 
-const unsigned int baud_host  = 9600;        // set baud rate for host serial monitor(pc/mac/other)
-const unsigned int send_readings_every = 50000; // set at what intervals the readings are sent to the computer (NOTE: this is not the frequency of taking the readings!)
+const unsigned int baud_host  = 9600;               // set baud rate for host serial monitor(pc/mac/other)
+const unsigned int send_readings_every = 50000;     // set at what intervals the readings are sent to the computer (NOTE: this is not the frequency of taking the readings!)
 unsigned long next_serial_time;
 
-char sensordata[30];                          // A 30 byte character array to hold incoming data from the sensors
-byte sensor_bytes_received = 0;               // We need to know how many characters bytes have been received
-byte code = 0;                                // used to hold the I2C response code.
-byte in_char = 0;                             // used as a 1 byte buffer to store in bound bytes from the I2C Circuit.
+char sensordata[30];                                // A 30 byte character array to hold incoming data from the sensors
+byte sensor_bytes_received = 0;                     // We need to know how many characters bytes have been received
+byte code = 0;                                      // used to hold the I2C response code.
+byte in_char = 0;                                   // used as a 1 byte buffer to store in bound bytes from the I2C Circuit.
 
-int channel_ids[] = {98, 99};        // <-- CHANGE THIS. A list of I2C ids that you set your circuits to.
-char *channel_names[] = {"ORP", "PH"};   // <-- CHANGE THIS. A list of channel names (must be the same order as in channel_ids[]) - only used to designate the readings in serial communications
+int channel_ids[] = {98, 99};                       // <-- CHANGE THIS. A list of I2C ids that you set your circuits to.
+char *channel_names[] = {"ORP", "PH"};              // <-- CHANGE THIS. A list of channel names (must be the same order as in channel_ids[]) - only used to designate the readings in serial communications
 
-String readings[TOTAL_CIRCUITS];               // an array of strings to hold the readings of each channel
+String readings[TOTAL_CIRCUITS];                    // an array of strings to hold the readings of each channel
 String PH_val = "Wait";
-String ORP_val = "Wait";
-String TEMP_val = "23";
-char command_string;                    // holds command to be send to probe
+String ORP_val = "a";
+String TEMP_val = "min";
+char command_string;                                // holds command to be send to probe
 /* https://www.atlas-scientific.com/_files/_datasheets/_circuit/pH_EZO_datasheet.pdf useful commands: 
  *  'Sleep' puts device to sleep, any command wil wake up
  *  'Status' gets status, voltage and reason for last reboot
@@ -126,10 +144,6 @@ GfxUi ui = GfxUi(&tft);
 
 WebResource webResource;
 TimeClient timeClient(UTC_OFFSET);
-#define OSWATCH_RESET_TIME 30
-static unsigned long last_loop;
-Ticker TickerOSWatch;
-
 
 // Set to false, if you prefere imperial/inches, Fahrenheit
 WundergroundClient wunderground(IS_METRIC);
@@ -155,29 +169,20 @@ void drawSeparator(uint16_t y);
 long lastDownloadUpdate = millis();
 long lastTempTime = millis();
 
-/***********************************************************************************************
- * Watchdog routine                                                                                       *     
- ***********************************************************************************************/
-void ICACHE_RAM_ATTR osWatch(void) {
-    unsigned long t = millis();
-    unsigned long last_run = abs(t - last_loop);
-    if(last_run >= (OSWATCH_RESET_TIME * 1000)) {
-      // save the hit here to eeprom or to rtc memory if needed
-        ESP.restart();  // normal reboot 
-        //ESP.reset();  // hard reset
-    }
-}
 
 /***********************************************************************************************
  * Setup                                                                                       *     
  ***********************************************************************************************/
 void setup() {
+  last_loop = millis();                                                       // watchdog loop count
+  tickerOSWatch.attach_ms(((OSWATCH_RESET_TIME / 3) * 1000), osWatch);        // watchdog object
+  
   Serial.begin(baud_host);
-  pinMode(13, OUTPUT);                        // set the led output pin
+  pinMode(13, OUTPUT);                                                        // set the led output pin
 
-  Wire.begin();                    // enable I2C port.
-  sensors.begin(); // IC Default 9 bit. If you have troubles consider upping it 12. Ups the delay giving the IC more time to process the temperature measurement
-  next_serial_time = millis() + send_readings_every;  // calculate the next point in time we should do serial communications
+  Wire.begin();                                                               // enable I2C port.
+  sensors.begin();                                                            // IC Default 9 bit. If you have troubles consider upping it 12. Ups the delay giving the IC more time to process the temperature measurement
+  next_serial_time = millis() + send_readings_every;                          // calculate the next point in time we should do serial communications
 
   tft.begin();
   tft.setRotation(2);
@@ -192,17 +197,13 @@ void setup() {
   tft.setTextColor(TFT_ORANGE, TFT_BLACK);
 
   SPIFFS.begin();
-  //listFiles();
-  //Uncomment if you want to erase SPIFFS and update all internet resources, this takes some time!
-  //tft.drawString("Formatting SPIFFS, so wait!", 120, 200); SPIFFS.format();
-
   if (SPIFFS.exists("/WU.jpg") == true) ui.drawJpeg("/WU.jpg", 0, 10);
   if (SPIFFS.exists("/Earth.jpg") == true) ui.drawJpeg("/Earth.jpg", 0, 320 - 56); // Image is 56 pixels high
   delay(1000);
   tft.drawString("Verbinden met WiFi", 120, 200);
-  tft.setTextPadding(240); // Pad next drawString() text to full width to over-write old text
+  tft.setTextPadding(240);                                                    // Pad next drawString() text to full width to over-write old text
 
-    //WiFiManager
+  //WiFiManager
   //Local intialization. Once its business is done, there is no need to keep it around
   WiFiManager wifiManager;
   // Uncomment for testing wifi manager
@@ -244,9 +245,6 @@ void setup() {
 
   // load the weather information
   updateData();
-  // setup watchdog
-  last_loop = millis();
-  TickerOSWatch.attach_ms(((OSWATCH_RESET_TIME / 3) * 1000), osWatch);
 }
 
 long lastDrew = 0;
@@ -257,6 +255,8 @@ long lastDrew = 0;
  *************************************************************************************************/
 
 void loop() {
+  // Kick the watchdog
+  last_loop=millis(); 
   // Handle OTA update requests
   ArduinoOTA.handle();
 
