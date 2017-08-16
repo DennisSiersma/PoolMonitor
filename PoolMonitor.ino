@@ -20,6 +20,8 @@
   Adapted by Bodmer to use the faster TFT_ILI9341_ESP library:
   https://github.com/Bodmer/TFT_ILI9341_ESP
 
+  Parts of PH and EZO code taken from WhiteBox Labs -- Tentacle Shield -- examples
+
   Adapted by DJS to be used as pool monitor 2017, including PH and ORP sensors
   and water temperature.
 */
@@ -95,7 +97,7 @@ DallasTemperature sensors(&oneWire);
  * EZO stuff                                                                                   *     
  ***********************************************************************************************/
 #define TOTAL_CIRCUITS 2                            // <-- CHANGE THIS | set how many I2C circuits are attached to the Tentacle
-
+#include <AtlasScientific.h>
 const unsigned int baud_host  = 9600;               // set baud rate for host serial monitor(pc/mac/other)
 const unsigned int send_readings_every = 50000;     // set at what intervals the readings are sent to the computer (NOTE: this is not the frequency of taking the readings!)
 unsigned long next_serial_time;
@@ -109,18 +111,12 @@ int channel_ids[] = {98, 99};                       // <-- CHANGE THIS. A list o
 char *channel_names[] = {"ORP", "PH"};              // <-- CHANGE THIS. A list of channel names (must be the same order as in channel_ids[]) - only used to designate the readings in serial communications
 
 String readings[TOTAL_CIRCUITS];                    // an array of strings to hold the readings of each channel
-String PH_val = "Wait";
-String ORP_val = "a";
-String TEMP_val = "min";
+String TEMP_val = "Hold";
+String PH_val = "on";
+String ORP_val = "...";
+
 char command_string;                                // holds command to be send to probe
-/* https://www.atlas-scientific.com/_files/_datasheets/_circuit/pH_EZO_datasheet.pdf useful commands: 
- *  'Sleep' puts device to sleep, any command wil wake up
- *  'Status' gets status, voltage and reason for last reboot
- *  'C,n' set reading time for n seconds
- *  'L,0' led off, 1 for on
- *  'T,n' set temp compensation for n degrees, only when temp <> 2 degrees from 25c
- *  'Cal,mid,7.00' set calibration, always mid first, then low and high (for two or three point calibration)
- */
+
 int channel = 0;                              // INT pointer to hold the current position in the channel_ids/channel_names array
 
 const unsigned int reading_delay = 1000;      // time to wait for the circuit to process a read command. datasheets say 1 second.
@@ -168,6 +164,14 @@ void drawSeparator(uint16_t y);
 
 long lastDownloadUpdate = millis();
 long lastTempTime = millis();
+
+/***********************************************************************************************
+ * Serial interupt                                                                             *     
+ ***********************************************************************************************/
+void serialEvent() {                                                      // This interrupt will trigger when the data coming from the serial monitor(pc/mac/other) is received
+  computer_bytes_received = Serial.readBytesUntil(13, computerdata, 20);  // We read the data sent from the serial monitor(pc/mac/other) until we see a <CR>. We also count how many characters have been received
+  computerdata[computer_bytes_received] = 0;                              // We add a 0 to the spot in the array just after the last character we received.. This will stop us from transmitting incorrect data that may have been left in the buffer
+}
 
 
 /***********************************************************************************************

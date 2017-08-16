@@ -1,13 +1,3 @@
-// WhiteBox Labs -- Tentacle Shield -- I2C interactive example
-// https://www.whiteboxes.ch/tentacle
-//
-// How to use 4 (or 8 if using 2 Tentacle shields) Atlas Scientivic devices in I2C mode
-// and interact with them via the serial monitor.
-//
-// This code is intended to work on all Arduinos. If using the Arduino Yun, connect
-// to it's serial port. If you want to work with the Yun wirelessly, check out the respective
-// Yun version of this example.
-//
 // USAGE:
 //---------------------------------------------------------------------------------------------
 // - Set all your EZO circuits to I2C before using this sketch.
@@ -26,25 +16,6 @@
 // 110:cal,mid,7.00<CR>
 //
 //---------------------------------------------------------------------------------------------
-//
-// This program is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// at your option) any later version.
-//
-// This program is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-// 
-// You should have received a copy of the GNU General Public License
-// along with this program.  If not, see <http://www.gnu.org/licenses/>.
-//
-//---------------------------------------------------------------------------------------------
-
-#include <Wire.h>                   // enable I2C.
-
-unsigned long serial_host  = 9600;  // set baud rate for host serial monitor(pc/mac/other)
 
 char sensordata[30];                // A 30 byte character array to hold incoming data from the sensors
 byte computer_bytes_received = 0;   // We need to know how many characters bytes have been received
@@ -56,20 +27,6 @@ char computerdata[48];              // we make a 20 byte character array to hold
 byte code = 0;                      // used to hold the I2C response code.
 byte in_char = 0;                   // used as a 1 byte buffer to store in bound bytes from the I2C Circuit.
 int time;                         // used to change the dynamic polling delay needed for I2C read operations.
-
-
-void setup() {                      // startup function
-  Serial.begin(serial_host);      // Set the hardware serial port.
-  Wire.begin();         // enable I2C port.
-  intro();          // display startup message
-}
-
-
-void serialEvent() {                          // This interrupt will trigger when the data coming from the serial monitor(pc/mac/other) is received
-  computer_bytes_received = Serial.readBytesUntil(13, computerdata, 20);  // We read the data sent from the serial monitor(pc/mac/other) until we see a <CR>. We also count how many characters have been received
-  computerdata[computer_bytes_received] = 0;                // We add a 0 to the spot in the array just after the last character we received.. This will stop us from transmitting incorrect data that may have been left in the buffer
-}
-
 
 void loop() {                                   // main loop
 
