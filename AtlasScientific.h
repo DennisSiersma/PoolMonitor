@@ -16,7 +16,7 @@
 // 110:cal,mid,7.00<CR>
 //
 //---------------------------------------------------------------------------------------------
-
+/*
 char sensordata[30];                // A 30 byte character array to hold incoming data from the sensors
 byte computer_bytes_received = 0;   // We need to know how many characters bytes have been received
 byte sensor_bytes_received = 0;     // We need to know how many characters bytes have been received
@@ -108,3 +108,4 @@ void I2C_call() {               // function to parse and call I2C commands
 
   Serial.println(sensordata);         // print the data.
 }
+*/

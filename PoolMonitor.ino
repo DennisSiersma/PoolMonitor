@@ -97,7 +97,7 @@ DallasTemperature sensors(&oneWire);
  * EZO stuff                                                                                   *     
  ***********************************************************************************************/
 #define TOTAL_CIRCUITS 2                            // <-- CHANGE THIS | set how many I2C circuits are attached to the Tentacle
-#include <AtlasScientific.h>
+//#include "AtlasScientific.h"
 const unsigned int baud_host  = 9600;               // set baud rate for host serial monitor(pc/mac/other)
 const unsigned int send_readings_every = 50000;     // set at what intervals the readings are sent to the computer (NOTE: this is not the frequency of taking the readings!)
 unsigned long next_serial_time;
@@ -168,10 +168,10 @@ long lastTempTime = millis();
 /***********************************************************************************************
  * Serial interupt                                                                             *     
  ***********************************************************************************************/
-void serialEvent() {                                                      // This interrupt will trigger when the data coming from the serial monitor(pc/mac/other) is received
-  computer_bytes_received = Serial.readBytesUntil(13, computerdata, 20);  // We read the data sent from the serial monitor(pc/mac/other) until we see a <CR>. We also count how many characters have been received
-  computerdata[computer_bytes_received] = 0;                              // We add a 0 to the spot in the array just after the last character we received.. This will stop us from transmitting incorrect data that may have been left in the buffer
-}
+//void serialEvent() {                                                      // This interrupt will trigger when the data coming from the serial monitor(pc/mac/other) is received
+//  computer_bytes_received = Serial.readBytesUntil(13, computerdata, 20);  // We read the data sent from the serial monitor(pc/mac/other) until we see a <CR>. We also count how many characters have been received
+//  computerdata[computer_bytes_received] = 0;                              // We add a 0 to the spot in the array just after the last character we received.. This will stop us from transmitting incorrect data that may have been left in the buffer
+//}
 
 
 /***********************************************************************************************
