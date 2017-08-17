@@ -17,99 +17,39 @@
 //
 //---------------------------------------------------------------------------------------------
 
-// EZO stamp code for PH and ORP
-// do serial communication in a "asynchronous" way
+char sensordata[30];                // A 30 byte character array to hold incoming data from the sensors
+byte computer_bytes_received = 0;   // We need to know how many characters bytes have been received
+byte sensor_bytes_received = 0;     // We need to know how many characters bytes have been received
+int channel;                        // INT pointer for channel switching - 0-7 serial, 8-127 I2C addresses
+char *cmd;                          // Char pointer used in string parsing
 
-void do_serial() {
-  if (millis() >= next_serial_time) {                // is it time for the next serial communication?
-    for (int i = 0; i < TOTAL_CIRCUITS; i++) {       // loop through all the sensors
-      Serial.print(channel_names[i]);                // print channel name
-      Serial.print(":\t");
-      Serial.println(readings[i]);                    // print the actual reading
-      //Serial.println(i);
-      PH_val = readings[1];
-      ORP_val = readings[0];
-      drawEZO();
-      Serial.println(PH_val + " " + ORP_val);
-    }
-    next_serial_time = millis() + send_readings_every;
-  }
-}
+char computerdata[48];              // we make a 20 byte character array to hold incoming data from a pc/mac/other.
+byte code = 0;                      // used to hold the I2C response code.
+byte in_char = 0;                   // used as a 1 byte buffer to store in bound bytes from the I2C Circuit.
+int time;                         // used to change the dynamic polling delay needed for I2C read operations.
 
+void loop() {                                   // main loop
 
-// take sensor readings in a "asynchronous" way
-void do_sensor_readings() {
-  if (request_pending) {                          // is a request pending?
-    if (millis() >= next_reading_time) {          // is it time for the reading to be taken?
-      receive_reading();                          // do the actual I2C communication
-    }
-  } else {                                        // no request is pending,
-    channel = (channel + 1) % TOTAL_CIRCUITS;     // switch to the next channel (increase current channel by 1, and roll over if we're at the last channel using the % modulo operator)
-    request_reading();                            // do the actual I2C communication
-  }
-}
+  if (computer_bytes_received != 0) {           // If computer_bytes_received does not equal zero
+    
+    channel = atoi(strtok(computerdata, ":"));  // Let's parse the string at each colon
+    cmd = strtok(NULL, ":");                    // Let's parse the string at each colon
 
+    I2C_call();                           // send to I2C
 
-// Request a reading from the current channel
-void request_reading() {
-  request_pending = true;
-  Wire.beginTransmission(channel_ids[channel]); // call the circuit by its ID number.
-  Wire.write('r');                    // request a reading by sending 'r'
-  Wire.endTransmission();                   // end the I2C data transmission.
-  next_reading_time = millis() + reading_delay; // calculate the next time to request a reading
-}
-
-void send_command() {
-  request_pending = true;
-  Wire.beginTransmission(channel_ids[channel]);  // call the circuit by its ID number.
-  Wire.write(command_string);                               // request a reading by sending command
-  Wire.endTransmission();                        // end the I2C data transmission.
-  next_reading_time = millis() + reading_delay;  // calculate the next time to request a reading
-  command_string='r';
-}
-
-// Receive data from the I2C bus
-void receive_reading() {
-  sensor_bytes_received = 0;                        // reset data counter
-  memset(sensordata, 0, sizeof(sensordata));        // clear sensordata array;
-
-  Wire.requestFrom(channel_ids[channel], 48, 1);    // call the circuit and request 48 bytes (this is more then we need).
-  code = Wire.read();
-
-  while (Wire.available()) {          // are there bytes to receive?
-    in_char = Wire.read();            // receive a byte.
-
-    if (in_char == 0) {               // if we see that we have been sent a null command.
-      Wire.endTransmission();         // end the I2C data transmission.
-      break;                          // exit the while loop, we're done here
-    }
-    else {
-      sensordata[sensor_bytes_received] = in_char;  // load this byte into our array.
-      sensor_bytes_received++;
-    }
+    computer_bytes_received = 0;                // Reset the var computer_bytes_received to equal 0
   }
 
-  switch (code) {                       // switch case based on what the response code is.
-    case 1:                             // decimal 1  means the command was successful.
-      readings[channel] = sensordata;
-      break;                              // exits the switch case.
-
-    case 2:                             // decimal 2 means the command has failed.
-      readings[channel] = "error: command failed";
-      break;                              // exits the switch case.
-
-    case 254:                           // decimal 254  means the command has not yet been finished calculating.
-      readings[channel] = "reading not ready";
-      break;                              // exits the switch case.
-
-    case 255:                           // decimal 255 means there is no further data to send.
-      readings[channel] = "error: no data";
-      break;                              // exits the switch case.
-  }
-  request_pending = false;                  // set pending to false, so we can continue to the next sensor
 }
 
-/*void I2C_call() {               // function to parse and call I2C commands
+void intro() {                                  // print intro
+  Serial.flush();
+  Serial.println(" ");
+  Serial.println("READY_");
+}
+
+
+void I2C_call() {               // function to parse and call I2C commands
   sensor_bytes_received = 0;                    // reset data counter
   memset(sensordata, 0, sizeof(sensordata));    // clear sensordata array;
 
@@ -126,7 +66,7 @@ void receive_reading() {
 
   code = 254;       // init code value
 
-  while (code == 254) {                 // in case the command takes longer to process, we keep looping here until we get a success or an error
+  while (code == 254) {                 // in case the cammand takes longer to process, we keep looping here until we get a success or an error
 
     Wire.requestFrom(channel, 48, 1);   // call the circuit and request 48 bytes (this is more then we need).
     code = Wire.read();
@@ -168,5 +108,3 @@ void receive_reading() {
 
   Serial.println(sensordata);         // print the data.
 }
-*/
-
