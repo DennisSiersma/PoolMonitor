@@ -68,8 +68,8 @@ void ICACHE_RAM_ATTR osWatch(void) {
     unsigned long last_run = abs(t - last_loop);
     if(last_run >= (OSWATCH_RESET_TIME * 1000)) {
       // save the hit here to eeprom or to rtc memory if needed
-        ESP.restart();  // normal reboot 
-        //ESP.reset();  // hard reset
+        //ESP.restart();  // normal reboot 
+        ESP.reset();  // hard reset
     }
 }
 /***********************************************************************************************
@@ -115,8 +115,7 @@ String TEMP_val = "Hold";
 String PH_val = "on";
 String ORP_val = "...";
 
-char command_string;                                // holds command to be send to probe
-
+char command_string[] = "99:cal,mid,7.00<CR>";                                // holds command to be send to probe
 int channel = 0;                              // INT pointer to hold the current position in the channel_ids/channel_names array
 
 const unsigned int reading_delay = 1000;      // time to wait for the circuit to process a read command. datasheets say 1 second.
