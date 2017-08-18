@@ -86,12 +86,25 @@ void ICACHE_RAM_ATTR osWatch(void) {
 #include <WundergroundClient.h>
 #include "TimeClient.h"
 BlynkTimer timer;
-//Setup instances for Onewire and DallasTemperature
-OneWire oneWire(ONE_WIRE_BUS);
-DallasTemperature sensors(&oneWire);
 
-// HOSTNAME for OTA update
-#define HOSTNAME "ESP8266-OTA-"
+int cmdCalORP = 0;
+int cmdCalPH7 = 0;
+int cmdCalPH4 = 0;
+int cmdCalPH10 = 0;
+
+BLYNK_WRITE(V11){
+   cmdCalORP = param.asInt(); // Get the state of the VButton
+}
+BLYNK_WRITE(V12){
+    cmdCalPH7 = param.asInt(); // Get the state of the VButton
+} 
+BLYNK_WRITE(V13){
+    cmdCalPH4 = param.asInt(); // Get the state of the VButton
+} 
+BLYNK_WRITE(V14){
+    cmdCalPH10 = param.asInt(); // Get the state of the VButton
+} 
+
 
 /***********************************************************************************************
  * EZO stuff                                                                                   *     
@@ -130,7 +143,11 @@ boolean led_state = LOW;                      // keeps track of the current led 
 /***********************************************************************************************
  * Important: see settings.h to configure your settings!!!                                     *                                                                           *     
  ***********************************************************************************************/
+OneWire oneWire(ONE_WIRE_BUS);
+DallasTemperature sensors(&oneWire);
 
+// HOSTNAME for OTA update
+#define HOSTNAME "ESP8266-OTA-"
 TFT_ILI9341_ESP tft = TFT_ILI9341_ESP();       // Invoke custom library
 
 boolean booted = true;
@@ -717,9 +734,11 @@ void blink_led() {
   }
 }
 
-
-// EZO stamp code for PH and ORP
+/***********************************************************************************************
+ * Atlas Scientific EZO code                                                                                     *     
+ ***********************************************************************************************/
 // do serial communication in a "asynchronous" way
+
 void do_serial() {
   if (millis() >= next_serial_time) {                // is it time for the next serial communication?
     for (int i = 0; i < TOTAL_CIRCUITS; i++) {       // loop through all the sensors
@@ -809,6 +828,10 @@ void receive_reading() {
   request_pending = false;                  // set pending to false, so we can continue to the next sensor
 }
 
+
+/***********************************************************************************************
+ * Temperature                                                                                      *     
+ ***********************************************************************************************/
 //Receive data from OneWire sensor
 void requestTemp()  {
   // call sensors.requestTemperatures() to issue a global temperature
@@ -823,4 +846,7 @@ void requestTemp()  {
   TEMP_val = sensors.getTempCByIndex(0);
 }
 
+/***********************************************************************************************
+ * Blynk                                                                                       *     
+ ***********************************************************************************************/
 
