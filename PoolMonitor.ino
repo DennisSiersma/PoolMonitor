@@ -116,7 +116,11 @@ String TEMP_val = "Hold";
 String PH_val = "on";
 String ORP_val = "...";
 
-char command_string[20] = "cal,mid,7.00";     // holds command to be send to probe
+char command_string[20];       // holds command to be send to probe
+char ScmdCalORP[] = "cal,225";
+char ScmdCalPH7[] = "cal,mid,7.00";
+char ScmdCalPH4[] = "cal,low,4.00";
+char ScmdCalPH10[] = "cal,high,10.00";                                 // holds command to be send to probe
 byte cs_lenght;                               // counter for char lenght
 
 int channel = 0;                              // INT pointer to hold the current position in the channel_ids/channel_names array
@@ -843,7 +847,7 @@ BLYNK_WRITE(V11){
    cmdCalORP = param.asInt(); // Get the state of the VButton
    if (cmdCalORP == 1) {
     channel = 98;
-    command_string = "cal,225";
+    strcpy(command_string, ScmdCalORP);
     send_command();
    }
 }
@@ -851,23 +855,23 @@ BLYNK_WRITE(V12){
     cmdCalPH7 = param.asInt(); // Get the state of the VButton
     if (cmdCalPH7 == 1) {
     channel = 99;
-    command_string = "cal,mid,7.00";
+    strcpy(command_string, ScmdCalPH7);
     send_command();  
       }
 } 
 BLYNK_WRITE(V13){
     cmdCalPH4 = param.asInt(); // Get the state of the VButton
-    if (cmdCalORP == 1) {
+    if (cmdCalPH4 == 1) {
     channel = 99;
-    command_string = "cal,low,4.00";
+    strcpy(command_string, ScmdCalPH4);
     send_command();  
       }
 } 
 BLYNK_WRITE(V14){
     cmdCalPH10 = param.asInt(); // Get the state of the VButton
-    if (cmdCalORP == 1) {
+    if (cmdCalPH10 == 1) {
     channel = 99;
-    command_string = "cal,high,10.00";
+    strcpy(command_string, ScmdCalPH10);
     send_command();  
       }
 } 
