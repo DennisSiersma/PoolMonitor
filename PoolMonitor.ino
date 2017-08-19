@@ -67,7 +67,7 @@
  ***********************************************************************************************/
 Ticker tickerOSWatch;
 
-#define OSWATCH_RESET_TIME 30
+#define OSWATCH_RESET_TIME 60
 
 static unsigned long last_loop;
 
@@ -92,7 +92,7 @@ int cmdCalPH7 = 0;
 int cmdCalPH4 = 0;
 int cmdCalPH10 = 0;
 
-
+String inputString = "";
 /***********************************************************************************************
  * EZO stuff                                                                                   *     
  ***********************************************************************************************/
@@ -178,11 +178,16 @@ long lastTempTime = millis();
 /***********************************************************************************************
  * Serial interupt                                                                             *     
  ***********************************************************************************************/
-//void serialEvent() {                                                      // This interrupt will trigger when the data coming from the serial monitor(pc/mac/other) is received
-//  computer_bytes_received = Serial.readBytesUntil(13, computerdata, 20);  // We read the data sent from the serial monitor(pc/mac/other) until we see a <CR>. We also count how many characters have been received
-//  computerdata[computer_bytes_received] = 0;                              // We add a 0 to the spot in the array just after the last character we received.. This will stop us from transmitting incorrect data that may have been left in the buffer
-//}
-
+void serialEvent() {  // Check for data on 2nd serial port
+  while (Serial1.available()) {
+    char inChar = (char)Serial1.read();
+    inputString += inChar;
+    if (inChar == '\n') {
+    Blynk.virtualWrite (V10, inputString);
+    inputString = "";
+    }
+  }
+}
 
 /***********************************************************************************************
  * Setup                                                                                       *     
