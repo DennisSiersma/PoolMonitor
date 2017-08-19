@@ -54,6 +54,14 @@
 #include <DNSServer.h>
 #include <ESP8266WebServer.h>
 
+// check settings.h for adapting to your needs
+#include "settings.h"
+#include <BlynkSimpleEsp8266.h>
+// Helps with connecting to internet
+#include <WiFiManager.h>
+#include <JsonListener.h>
+#include <WundergroundClient.h>
+#include "TimeClient.h"
 /***********************************************************************************************
  * Watchdog                                                                                    *     
  ***********************************************************************************************/
@@ -68,30 +76,22 @@ void ICACHE_RAM_ATTR osWatch(void) {
     unsigned long last_run = abs(t - last_loop);
     if(last_run >= (OSWATCH_RESET_TIME * 1000)) {
       // save the hit here to eeprom or to rtc memory if needed
-        ESP.restart();  // normal reboot 
-        //ESP.reset();  // hard reset
+        //ESP.restart();  // normal reboot 
+        ESP.reset();  // hard reset
     }
 }
 /***********************************************************************************************
  * Blynk                                                                                       *     
  ***********************************************************************************************/
-#include <BlynkSimpleEsp8266.h>
 
-// Helps with connecting to internet
-#include <WiFiManager.h>
 
-// check settings.h for adapting to your needs
-#include "settings.h"
-#include <JsonListener.h>
-#include <WundergroundClient.h>
-#include "TimeClient.h"
 BlynkTimer timer;
-//Setup instances for Onewire and DallasTemperature
-OneWire oneWire(ONE_WIRE_BUS);
-DallasTemperature sensors(&oneWire);
 
-// HOSTNAME for OTA update
-#define HOSTNAME "ESP8266-OTA-"
+int cmdCalORP = 0;
+int cmdCalPH7 = 0;
+int cmdCalPH4 = 0;
+int cmdCalPH10 = 0;
+
 
 /***********************************************************************************************
  * EZO stuff                                                                                   *     
@@ -103,8 +103,8 @@ const unsigned int send_readings_every = 50000;     // set at what intervals the
 unsigned long next_serial_time;
 
 char sensordata[30];                                // A 30 byte character array to hold incoming data from the sensors
-byte computer_bytes_received = 0;                   // We need to know how many characters bytes have been received
 byte sensor_bytes_received = 0;                     // We need to know how many characters bytes have been received
+
 byte code = 0;                                      // used to hold the I2C response code.
 byte in_char = 0;                                   // used as a 1 byte buffer to store in bound bytes from the I2C Circuit.
 
@@ -116,25 +116,28 @@ String TEMP_val = "Hold";
 String PH_val = "on";
 String ORP_val = "...";
 
-char command_string[10];                                // holds command to be send to probe
-command_string = 'r';
-int channel = 0;                                    // INT pointer to hold the current position in the channel_ids/channel_names array
+char command_string[20] = "cal,mid,7.00";     // holds command to be send to probe
+byte cs_lenght;                               // counter for char lenght
 
-const unsigned int reading_delay = 1400;            // time to wait for the circuit to process a read command. datasheets say 1 second but calibration takes 1400.
-unsigned long next_reading_time;                    // holds the time when the next reading should be ready from the circuit
-boolean request_pending = false;                    // wether or not we're waiting for a reading
+int channel = 0;                              // INT pointer to hold the current position in the channel_ids/channel_names array
 
-const unsigned int blink_frequency = 250;           // the frequency of the led blinking, in milliseconds
-unsigned long next_blink_time;                      // holds the next time the led should change state
-boolean led_state = LOW;                            // keeps track of the current led state
+const unsigned int reading_delay = 1400;      // time to wait for the circuit to process a read command. datasheets say 1 second.
+unsigned long next_reading_time;              // holds the time when the next reading should be ready from the circuit
+boolean request_pending = false;              // wether or not we're waiting for a reading
 
-char computerdata[48];                              // we make a 20 byte character array to hold incoming data from a pc/mac/other.
-int time;                                           // used to change the dynamic polling delay needed for I2C read operations.
-#include "AtlasScientific.h"
+const unsigned int blink_frequency = 250;     // the frequency of the led blinking, in milliseconds
+unsigned long next_blink_time;                // holds the next time the led should change state
+boolean led_state = LOW;                      // keeps track of the current led state
+
+
 /***********************************************************************************************
  * Important: see settings.h to configure your settings!!!                                     *                                                                           *     
  ***********************************************************************************************/
+OneWire oneWire(ONE_WIRE_BUS);
+DallasTemperature sensors(&oneWire);
 
+// HOSTNAME for OTA update
+#define HOSTNAME "ESP8266-OTA-"
 TFT_ILI9341_ESP tft = TFT_ILI9341_ESP();       // Invoke custom library
 
 boolean booted = true;
@@ -171,10 +174,10 @@ long lastTempTime = millis();
 /***********************************************************************************************
  * Serial interupt                                                                             *     
  ***********************************************************************************************/
-void serialEvent() {                                                      // This interrupt will trigger when the data coming from the serial monitor(pc/mac/other) is received
-  computer_bytes_received = Serial.readBytesUntil(13, computerdata, 20);  // We read the data sent from the serial monitor(pc/mac/other) until we see a <CR>. We also count how many characters have been received
-  computerdata[computer_bytes_received] = 0;                              // We add a 0 to the spot in the array just after the last character we received.. This will stop us from transmitting incorrect data that may have been left in the buffer
-}
+//void serialEvent() {                                                      // This interrupt will trigger when the data coming from the serial monitor(pc/mac/other) is received
+//  computer_bytes_received = Serial.readBytesUntil(13, computerdata, 20);  // We read the data sent from the serial monitor(pc/mac/other) until we see a <CR>. We also count how many characters have been received
+//  computerdata[computer_bytes_received] = 0;                              // We add a 0 to the spot in the array just after the last character we received.. This will stop us from transmitting incorrect data that may have been left in the buffer
+//}
 
 
 /***********************************************************************************************
@@ -210,9 +213,7 @@ void setup() {
   tft.drawString("Verbinden met WiFi", 120, 200);
   tft.setTextPadding(240);                                                    // Pad next drawString() text to full width to over-write old text
 
-  /***********************************************************************************************
-   * WifiManager                                                                                  *     
-   ***********************************************************************************************/
+  //WiFiManager
   //Local intialization. Once its business is done, there is no need to keep it around
   WiFiManager wifiManager;
   // Uncomment for testing wifi manager
@@ -534,7 +535,37 @@ void drawCurrentWeather() {
   tft.setTextPadding(0); // Reset padding width to none
 }
 
+// draws the three forecast columns
+/*void drawForecast() {
+  drawForecastDetail(10, 171, 0);
+  drawForecastDetail(95, 171, 2);
+  drawForecastDetail(180, 171, 4);
+  drawSeparator(171 + 69);
+  }
 
+  // helper for the forecast columns
+  void drawForecastDetail(uint16_t x, uint16_t y, uint8_t dayIndex) {
+  tft.setFreeFont(&ArialRoundedMTBold_14);
+
+  String day = wunderground.getForecastTitle(dayIndex).substring(0, 3);
+  day.toUpperCase();
+
+  tft.setTextDatum(BC_DATUM);
+
+  tft.setTextColor(TFT_ORANGE, TFT_BLACK);
+  tft.setTextPadding(tft.textWidth("WWW"));
+  tft.drawString(day, x + 25, y);
+
+  tft.setTextColor(TFT_WHITE, TFT_BLACK);
+  tft.setTextPadding(tft.textWidth("-88   -88"));
+  tft.drawString(wunderground.getForecastHighTemp(dayIndex) + "   " + wunderground.getForecastLowTemp(dayIndex), x + 25, y + 14);
+
+  String weatherIcon = getMeteoconIcon(wunderground.getForecastIcon(dayIndex));
+  ui.drawBmp("/mini/" + weatherIcon + ".bmp", x, y + 15);
+
+  tft.setTextPadding(0); // Reset padding width to none
+  }
+*/
 // draw sensordata
 void drawEZO() {
   //Title
@@ -693,9 +724,104 @@ void blink_led() {
   }
 }
 
+/***********************************************************************************************
+ * Atlas Scientific EZO code                                                                                     *     
+ ***********************************************************************************************/
+// do serial communication in a "asynchronous" way
+
+void do_serial() {
+  if (millis() >= next_serial_time) {                // is it time for the next serial communication?
+    for (int i = 0; i < TOTAL_CIRCUITS; i++) {       // loop through all the sensors
+      Serial.print(channel_names[i]);                // print channel name
+      Serial.print(":\t");
+      Serial.println(readings[i]);                    // print the actual reading
+      //Serial.println(i);
+      PH_val = readings[1];
+      ORP_val = readings[0];
+      drawEZO();
+      Serial.println(PH_val + " " + ORP_val);
+    }
+    next_serial_time = millis() + send_readings_every;
+  }
+}
+
+
+// take sensor readings in a "asynchronous" way
+void do_sensor_readings() {
+  if (request_pending) {                          // is a request pending?
+    if (millis() >= next_reading_time) {          // is it time for the reading to be taken?
+      receive_reading();                          // do the actual I2C communication
+    }
+  } else {                                        // no request is pending,
+    channel = (channel + 1) % TOTAL_CIRCUITS;     // switch to the next channel (increase current channel by 1, and roll over if we're at the last channel using the % modulo operator)
+    request_reading();                            // do the actual I2C communication
+  }
+}
 
 
 
+// Request a reading from the current channel
+void request_reading() {
+  request_pending = true;
+  Wire.beginTransmission(channel_ids[channel]); // call the circuit by its ID number.
+  Wire.write('r');                    // request a reading by sending 'r'
+  Wire.endTransmission();                   // end the I2C data transmission.
+  next_reading_time = millis() + reading_delay; // calculate the next time to request a reading
+}
+
+void send_command() {
+  request_pending = true;
+  Wire.beginTransmission(channel_ids[channel]);  // call the circuit by its ID number.
+  Wire.write(command_string);                               // request a reading by sending command
+  Wire.endTransmission();                        // end the I2C data transmission.
+  next_reading_time = millis() + reading_delay;  // calculate the next time to request a reading
+}
+
+// Receive data from the I2C bus
+void receive_reading() {
+  sensor_bytes_received = 0;                        // reset data counter
+  memset(sensordata, 0, sizeof(sensordata));        // clear sensordata array;
+
+  Wire.requestFrom(channel_ids[channel], 48, 1);    // call the circuit and request 48 bytes (this is more then we need).
+  code = Wire.read();
+
+  while (Wire.available()) {          // are there bytes to receive?
+    in_char = Wire.read();            // receive a byte.
+
+    if (in_char == 0) {               // if we see that we have been sent a null command.
+      Wire.endTransmission();         // end the I2C data transmission.
+      break;                          // exit the while loop, we're done here
+    }
+    else {
+      sensordata[sensor_bytes_received] = in_char;  // load this byte into our array.
+      sensor_bytes_received++;
+    }
+  }
+
+  switch (code) {                       // switch case based on what the response code is.
+    case 1:                             // decimal 1  means the command was successful.
+      readings[channel] = sensordata;
+      break;                              // exits the switch case.
+
+    case 2:                             // decimal 2 means the command has failed.
+      readings[channel] = "error: command failed";
+      break;                              // exits the switch case.
+
+    case 254:                           // decimal 254  means the command has not yet been finished calculating.
+      readings[channel] = "reading not ready";
+      break;                              // exits the switch case.
+
+    case 255:                           // decimal 255 means there is no further data to send.
+      readings[channel] = "error: no data";
+      break;                              // exits the switch case.
+  }
+  request_pending = false;                  // set pending to false, so we can continue to the next sensor
+}
+
+
+/***********************************************************************************************
+ * Temperature                                                                                      *     
+ ***********************************************************************************************/
 //Receive data from OneWire sensor
 void requestTemp()  {
   // call sensors.requestTemperatures() to issue a global temperature
@@ -710,4 +836,38 @@ void requestTemp()  {
   TEMP_val = sensors.getTempCByIndex(0);
 }
 
-
+/***********************************************************************************************
+ * Blynk                                                                                       *     
+ ***********************************************************************************************/
+BLYNK_WRITE(V11){
+   cmdCalORP = param.asInt(); // Get the state of the VButton
+   if (cmdCalORP == 1) {
+    channel = 98;
+    command_string = "cal,225";
+    send_command();
+   }
+}
+BLYNK_WRITE(V12){
+    cmdCalPH7 = param.asInt(); // Get the state of the VButton
+    if (cmdCalPH7 == 1) {
+    channel = 99;
+    command_string = "cal,mid,7.00";
+    send_command();  
+      }
+} 
+BLYNK_WRITE(V13){
+    cmdCalPH4 = param.asInt(); // Get the state of the VButton
+    if (cmdCalORP == 1) {
+    channel = 99;
+    command_string = "cal,low,4.00";
+    send_command();  
+      }
+} 
+BLYNK_WRITE(V14){
+    cmdCalPH10 = param.asInt(); // Get the state of the VButton
+    if (cmdCalORP == 1) {
+    channel = 99;
+    command_string = "cal,high,10.00";
+    send_command();  
+      }
+} 
