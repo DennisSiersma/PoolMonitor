@@ -86,7 +86,7 @@ void ICACHE_RAM_ATTR osWatch(void) {
 
 
 BlynkTimer timer;
-
+WidgetTerminal terminal(V10);
 int cmdCalORP = 0;
 int cmdCalPH7 = 0;
 int cmdCalPH4 = 0;
@@ -178,24 +178,27 @@ long lastTempTime = millis();
 /***********************************************************************************************
  * Serial interupt                                                                             *     
  ***********************************************************************************************/
-void serialEvent() {  // Check for data on 2nd serial port
-  while (Serial1.available()) {
-    char inChar = (char)Serial1.read();
-    inputString += inChar;
-    if (inChar == '\n') {
-    Blynk.virtualWrite (V10, inputString);
-    inputString = "";
-    }
-  }
+void Sent_serial() {
+       // Sent serial data to Blynk terminal - Unlimited string readed
+       String content = "";  //null string constant ( an empty string )
+       char character;
+       while(Serial.available()) {
+            character = Serial.read();
+            content.concat(character);
+              
+       }
+       if (content != "") {
+            Blynk.virtualWrite (V10, content);
+       }  
 }
-
 /***********************************************************************************************
  * Setup                                                                                       *     
  ***********************************************************************************************/
 void setup() {
   last_loop = millis();                                                       // watchdog loop count
   tickerOSWatch.attach_ms(((OSWATCH_RESET_TIME / 3) * 1000), osWatch);        // watchdog object
-  
+  timer.setInterval(100, Sent_serial);
+
   Serial.begin(baud_host);
   pinMode(13, OUTPUT);                                                        // set the led output pin
 
@@ -215,14 +218,7 @@ void setup() {
   delay(500);
   tft.setTextColor(TFT_ORANGE, TFT_BLACK);
 
-  SPIFFS.begin();
-  if (SPIFFS.exists("/WU.jpg") == true) ui.drawJpeg("/WU.jpg", 0, 10);
-  if (SPIFFS.exists("/Earth.jpg") == true) ui.drawJpeg("/Earth.jpg", 0, 320 - 56); // Image is 56 pixels high
-  delay(1000);
-  tft.drawString("Verbinden met WiFi", 120, 200);
-  tft.setTextPadding(240);                                                    // Pad next drawString() text to full width to over-write old text
-
-  //WiFiManager
+    //WiFiManager
   //Local intialization. Once its business is done, there is no need to keep it around
   WiFiManager wifiManager;
   // Uncomment for testing wifi manager
@@ -243,6 +239,7 @@ void setup() {
   //WiFi.printDiag(Serial);
   //Blynk.begin(auth, ssid, pass);
   WidgetTerminal terminal(V10);
+  terminal.flush();
   
   // OTA Setup
   String hostname(HOSTNAME);
@@ -251,7 +248,12 @@ void setup() {
   ArduinoOTA.setHostname((const char *)hostname.c_str());
   ArduinoOTA.begin();
 
-
+   SPIFFS.begin();
+  if (SPIFFS.exists("/WU.jpg") == true) ui.drawJpeg("/WU.jpg", 0, 10);
+  if (SPIFFS.exists("/Earth.jpg") == true) ui.drawJpeg("/Earth.jpg", 0, 320 - 56); // Image is 56 pixels high
+  delay(1000);
+  tft.drawString("Verbinden met WiFi", 120, 200);
+  tft.setTextPadding(240);                                                    // Pad next drawString() text to full width to over-write old text
   // download images from the net. If images already exist don't download
   tft.drawString("Downloaden naar SPIFFS...", 120, 200);
   tft.drawString(" ", 120, 240);  // Clear line
@@ -780,6 +782,7 @@ void request_reading() {
 
 void send_command() {
   request_pending = true;
+  terminal.flush();
   Wire.beginTransmission(channel_ids[channel]);  // call the circuit by its ID number.
   Wire.write(command_string);                               // request a reading by sending command
   Wire.endTransmission();                        // end the I2C data transmission.
