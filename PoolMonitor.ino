@@ -62,24 +62,7 @@
 #include <JsonListener.h>
 #include <WundergroundClient.h>
 #include "TimeClient.h"
-/***********************************************************************************************
- * Watchdog                                                                                    *     
- ***********************************************************************************************/
-Ticker tickerOSWatch;
 
-#define OSWATCH_RESET_TIME 60
-
-static unsigned long last_loop;
-
-void ICACHE_RAM_ATTR osWatch(void) {
-    unsigned long t = millis();
-    unsigned long last_run = abs(t - last_loop);
-    if(last_run >= (OSWATCH_RESET_TIME * 1000)) {
-      // save the hit here to eeprom or to rtc memory if needed
-        //ESP.restart();  // normal reboot 
-        ESP.reset();  // hard reset
-    }
-}
 /***********************************************************************************************
  * Blynk                                                                                       *     
  ***********************************************************************************************/
@@ -176,7 +159,7 @@ long lastDownloadUpdate = millis();
 long lastTempTime = millis();
 
 /***********************************************************************************************
- * Serial interupt                                                                             *     
+ * Serial interupt    (debugging)                                                              *     
  ***********************************************************************************************/
 void Sent_serial() {
        // Sent serial data to Blynk terminal - Unlimited string readed
@@ -191,13 +174,33 @@ void Sent_serial() {
             Blynk.virtualWrite (V10, content);
        }  
 }
+
+/***********************************************************************************************
+ * Watchdog                                                                                    *     
+ ***********************************************************************************************/
+Ticker tickerOSWatch;
+
+#define OSWATCH_RESET_TIME 60
+
+static unsigned long last_loop;
+
+void ICACHE_RAM_ATTR osWatch(void) {
+    unsigned long t = millis();
+    unsigned long last_run = abs(t - last_loop);
+    if(last_run >= (OSWATCH_RESET_TIME * 1000)) {
+      // save the hit here to eeprom or to rtc memory if needed
+        //ESP.restart();  // normal reboot 
+        terminal.println(F("------ RESET -------"));
+        ESP.reset();  // hard reset
+    }
+}
 /***********************************************************************************************
  * Setup                                                                                       *     
  ***********************************************************************************************/
 void setup() {
   last_loop = millis();                                                       // watchdog loop count
   tickerOSWatch.attach_ms(((OSWATCH_RESET_TIME / 3) * 1000), osWatch);        // watchdog object
-  timer.setInterval(100, Sent_serial);
+  //timer.setInterval(100, Sent_serial);
 
   Serial.begin(baud_host);
   pinMode(13, OUTPUT);                                                        // set the led output pin
@@ -782,6 +785,7 @@ void request_reading() {
 
 void send_command() {
   request_pending = true;
+  terminal.println(command_string);
   terminal.flush();
   Wire.beginTransmission(channel_ids[channel]);  // call the circuit by its ID number.
   Wire.write(command_string);                               // request a reading by sending command
@@ -827,6 +831,7 @@ void receive_reading() {
       readings[channel] = "error: no data";
       break;                              // exits the switch case.
   }
+  //Blynk.virtualWrite (V10, readings[channel]);
   request_pending = false;                  // set pending to false, so we can continue to the next sensor
 }
 
