@@ -85,7 +85,6 @@ void ICACHE_RAM_ATTR osWatch(void) {
  ***********************************************************************************************/
 
 
-
 BlynkTimer timer;
 
 int cmdCalORP = 0;
@@ -93,31 +92,19 @@ int cmdCalPH7 = 0;
 int cmdCalPH4 = 0;
 int cmdCalPH10 = 0;
 
-BLYNK_WRITE(V11){
-   cmdCalORP = param.asInt(); // Get the state of the VButton
-}
-BLYNK_WRITE(V12){
-    cmdCalPH7 = param.asInt(); // Get the state of the VButton
-} 
-BLYNK_WRITE(V13){
-    cmdCalPH4 = param.asInt(); // Get the state of the VButton
-} 
-BLYNK_WRITE(V14){
-    cmdCalPH10 = param.asInt(); // Get the state of the VButton
-} 
-
 
 /***********************************************************************************************
  * EZO stuff                                                                                   *     
  ***********************************************************************************************/
 #define TOTAL_CIRCUITS 2                            // <-- CHANGE THIS | set how many I2C circuits are attached to the Tentacle
-//#include "AtlasScientific.h"
+
 const unsigned int baud_host  = 9600;               // set baud rate for host serial monitor(pc/mac/other)
 const unsigned int send_readings_every = 50000;     // set at what intervals the readings are sent to the computer (NOTE: this is not the frequency of taking the readings!)
 unsigned long next_serial_time;
 
 char sensordata[30];                                // A 30 byte character array to hold incoming data from the sensors
 byte sensor_bytes_received = 0;                     // We need to know how many characters bytes have been received
+
 byte code = 0;                                      // used to hold the I2C response code.
 byte in_char = 0;                                   // used as a 1 byte buffer to store in bound bytes from the I2C Circuit.
 
@@ -129,10 +116,12 @@ String TEMP_val = "Hold";
 String PH_val = "on";
 String ORP_val = "...";
 
-char command_string[] = "99:cal,mid,7.00<CR>";                                // holds command to be send to probe
+char command_string[20] = "cal,mid,7.00";     // holds command to be send to probe
+byte cs_lenght;                               // counter for char lenght
+
 int channel = 0;                              // INT pointer to hold the current position in the channel_ids/channel_names array
 
-const unsigned int reading_delay = 1000;      // time to wait for the circuit to process a read command. datasheets say 1 second.
+const unsigned int reading_delay = 1400;      // time to wait for the circuit to process a read command. datasheets say 1 second.
 unsigned long next_reading_time;              // holds the time when the next reading should be ready from the circuit
 boolean request_pending = false;              // wether or not we're waiting for a reading
 
@@ -850,4 +839,35 @@ void requestTemp()  {
 /***********************************************************************************************
  * Blynk                                                                                       *     
  ***********************************************************************************************/
-
+BLYNK_WRITE(V11){
+   cmdCalORP = param.asInt(); // Get the state of the VButton
+   if (cmdCalORP == 1) {
+    channel = 98;
+    command_string = "cal,225";
+    send_command();
+   }
+}
+BLYNK_WRITE(V12){
+    cmdCalPH7 = param.asInt(); // Get the state of the VButton
+    if (cmdCalPH7 == 1) {
+    channel = 99;
+    command_string = "cal,mid,7.00";
+    send_command();  
+      }
+} 
+BLYNK_WRITE(V13){
+    cmdCalPH4 = param.asInt(); // Get the state of the VButton
+    if (cmdCalORP == 1) {
+    channel = 99;
+    command_string = "cal,low,4.00";
+    send_command();  
+      }
+} 
+BLYNK_WRITE(V14){
+    cmdCalPH10 = param.asInt(); // Get the state of the VButton
+    if (cmdCalORP == 1) {
+    channel = 99;
+    command_string = "cal,high,10.00";
+    send_command();  
+      }
+} 
